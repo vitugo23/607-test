@@ -1,0 +1,91 @@
+---
+title: "Project_1"
+author: "Victor Torres"
+date: "2024-02-17"
+output: html_document
+---
+# DESCRIPTION.#
+#### The purpose of this project is to analize data from a TXT file with chess tournament results. Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents, will be the information required to analized the data, and obtain all the information required for the project.
+
+```{r load require libraries}
+library(tidyverse)
+library(dplyr)
+library(stringr)
+```
+```{r Get the TXT file from my GitHub account}
+#get raw data from my GitHub Account
+raw_data <- readLines("https://raw.githubusercontent.com/vitugo23/DATA607/main/project1/Chess_tournament.txt")
+```
+```{r Extract Key fields, and putting it into a data frame}
+#extract key fields and putting into a dataframe using Regex
+player_num <- as.numeric(unlist(str_extract_all(raw_data,"(?<=\\s{3,4})\\d{1,2}(?=\\s)")))
+player_name <- unlist(str_extract_all(raw_data,"(?<=\\d\\s\\|\\s)([A-z, -]*\\s){1,}[[:alpha:]]*(?=\\s*\\|)"))
+player_state <- unlist(str_extract_all(raw_data, "[[:upper:]]{2}(?=\\s\\|)"))
+total_pts <- as.numeric(unlist(str_extract_all(raw_data, "(?<=\\|)\\d\\.\\d")))
+player_pre_rat <- as.numeric(unlist(str_extract_all(raw_data, "(?<=R:\\s{1,2})(\\d{3,4}(?=\\s))|(\\d{3,4}(?=P\\d{1,2}\\s*-))")))
+processed_data <- data.frame(player_num, player_name, player_state, total_pts, player_pre_rat)
+```
+```{r review dataframe structure }
+#review dataframe structure
+str(processed_data)
+```
+```{r create a secondary row with opponents to compare the data between players}
+#create a secondary row with opponents to compare the data between players
+secondary_rows <- raw_data[seq(5, 196, 3)]
+opponent_num <- as.numeric(unlist(str_extract_all(secondary_rows, "(?<=\\|(W|L|D)\\s{2,3})[[:digit:]]{1,2}(?=\\|)|((?<!->)(?<=\\|(U|H|B|X))\\s{4}(?=\\|))")))
+```
+```{r Calculate the PCR (average pre chess rating) for opponents}
+#Calculate the PCR (average pre chess rating) for opponents
+pcr_matrix <- matrix(data = NA, nrow = 64, ncol = 2)
+
+# Assign names 'total_opp_pcr, and avg_opp_pcr to dataframe 
+colnames(pcr_matrix) <- c("total_opp_pcr", "avg_opp_pcr")
+row_counter <- 0
+for(i in seq(from=1, to=length(opponent_num)-6, by=7)){
+  row_counter <- row_counter + 1
+  
+  pcr_matrix[row_counter, 1] <- (sum(subset(processed_data$player_pre_rat, processed_data$player_num %in% opponent_num[seq(from=i, to=i+6, by=1)])))
+  
+# Calculate the average score per row
+  pcr_matrix[row_counter, 2] <- pcr_matrix[row_counter, 1] / length(subset(opponent_num[seq(from=i, to=i+6, by=1)],!is.na(opponent_num[seq(from=i, to=i+6, by=1)])))
+  
+}
+# Verify matrix works as need it
+head(pcr_matrix, 5)
+```
+```{r Round to the nearest whole number}
+#Round to the nearest whole number
+pcr_matrix[, 2] <- round(pcr_matrix[,2], digits = 0)
+
+processed_data <- cbind(processed_data, pcr_matrix[, 2])
+processed_data <- rename(processed_data, avg_opp_pcr = `pcr_matrix[, 2]`)
+```
+```{r}
+# Get working directory path
+path <- getwd()
+
+# Export file to working directory
+write.csv(processed_data, file.path(path, "chess_processed_data.csv"))
+head(processed_data, 5)
+```
+```{r graphics}
+library(ggplot2)
+processed_data %>%
+  ggplot(aes(x = total_pts)) + geom_bar()
+
+barplot(rbind(processed_data$`player_pre_rat`[41:64], processed_data$`avg_opp_pcr`[41:64]), beside = TRUE, col = c("yellow", "green"), 
+        xlab = "Player Pre-Rat. vs. Average Opponent Pre-Rat.", ylab = "Players pre-rating", names.arg = c(41:64)) 
+
+
+```
+
+
+# Conclussion. #
+### The data was succesfully extracted from the text file, loaded into a data frame, and analized in order to get the information required in the project. The process was succesfully achieved thanks to some of the Tidyverse functions as well as Regex.###
+
+## Sources.##
+###### R for Data Science ######
+###### Stack Overflow ######
+###### GeeksforGeeks ######
+###### DataCamp ######
+
