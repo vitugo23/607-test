@@ -1,0 +1,21 @@
+---
+title: "Week7"
+author: "Victor Torres"
+date: "2024-03-05"
+output: html_document
+---
+
+
+
+```{r}
+library (tidyverse)
+library(rvest)
+library(rjson)
+library(XML)
+library(methods)
+```
+
+```{r}
+result <- xmlParse(file= "C:\Users\vitug\OneDrive\Desktop\DATA_607\W7_Assignment\Book1.xml")
+```
+
