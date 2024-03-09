@@ -4,18 +4,64 @@ author: "Victor Torres"
 date: "2024-03-05"
 output: html_document
 ---
-
-
-
-```{r}
+#Introduction.#
+###Week seven assignment is about preparing three files with the same data in it to practice loading diferent formats into R Studio (HTML, JSON and XML). After convert them to data frames and compare the differences. In order to understand better the file structures, the three files was manually written and then loaded into Github for reference and reproducibility. The files must  contain the following information:Title, Authors, and two or three other attributes such as Genre, number of copies sold, and critics rating.###
+####Load the required libraries for the project.####
+```{r load libraries}
 library (tidyverse)
+library(RCurl)
 library(rvest)
 library(rjson)
 library(XML)
 library(methods)
 ```
+##Load HTML file##
+```{r}
+file_html <- "https://raw.githubusercontent.com/vitugo23/DATA607/main/Assignments/W7_Assignment/book1.html"
+htmlraw <- getURL(file_html)
+# The HTML file loaded as class "character"
+class(htmlraw)
+```
+```{r}
+html_df <- readHTMLTable(htmlraw,which=1)
+# Convert Num_Pages column to numeric
+html_df$`Book Name` <- as.numeric(html_df$`Book Name`)
+# Confirm how it has been loaded, in this case as a data frame
+class(html_df)
+```
+```{r}
+html_df
+```
+
+##Load XML file.##
+```{r}
+file_xml <- getURL("https://raw.githubusercontent.com/vitugo23/DATA607/main/Assignments/W7_Assignment/Book1.xml")
+xmlraw <- xmlParse(file_xml)
+# The XML file loaded as class "XML"
+class(xmlraw)
+```
+```{r}
+xml_df
+```
 
 ```{r}
-result <- xmlParse(file= "C:\Users\vitug\OneDrive\Desktop\DATA_607\W7_Assignment\Book1.xml")
+# Get the root node
+xmlroot <- xmlRoot(xmlraw)
+# Extract the XML data
+xml_df <- xmlSApply(xmlroot, function(x) xmlSApply(x, xmlValue))
+# Convert the XML into a data frame
+xml_df <- data.frame(t(xml_df),row.names=NULL)
+# Convert Num_Pages column to numeric
+xml_df$Number_Pages <- as.numeric(xml_df$Number_Pages)
+```
+##Load JSON file.##
+```{r}
+file_json <- "https://raw.githubusercontent.com/vitugo23/DATA607/main/Assignments/W7_Assignment/book1.json"
+jsonraw <- fromJSON(file = file_json)
+# The JSON file loaded as class "list"
+class(jsonraw)
+```
+```{r json DF}
+json_df
 ```
 
