@@ -1,0 +1,82 @@
+---
+title: "Week9_Assignment"
+author: "Victor Torres"
+date: "2024-03-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intoduction.
+
+#### For this week's assignment, we need to choose one APIs from the New York Times web page, get an API key, construct an interface in R to read the JSON data, and and transform it into an R DataFrame. 
+
+### Import Libraries required for this assignment.
+
+```{r libraries}
+library(tidyverse)
+library(jsonlite)
+library(plyr)
+library(dplyr)
+library(httr2)
+library(knitr)
+```
+
+### Get APIs and keys from NYT section "Most Popular by Email" into R.
+
+```{r API}
+emailed_url <- fromJSON("https://api.nytimes.com/svc/mostpopular/v2/emailed/1.json?api-key=w8OnkqtBI6BsPbTAlCiAyQNJ0LCCRM7F", flatten = TRUE)
+```
+
+### Create a DafaFrame of 4 columns.
+
+```{r DataFrame}
+emailed_df <- ldply(emailed_url[4], data.frame)
+```
+
+### Check names within the new DataFrame.
+
+```{r Names}
+names(emailed_df)
+
+```
+### Select data to work with, and display it in console.
+
+```{r select}
+MostEmailed <- emailed_df %>% select(url, title, section, byline, published_date)
+head(MostEmailed) 
+```
+```{r}
+as.numeric(MostEmailed$published_date)
+MostEmailed
+```
+
+### Final view of DataFrame.
+
+```{r kable}
+kable(MostEmailed)
+```
+
+### Analyze data, checked most emailed articles on NYTimes.com from 2020 by section.
+
+```{r analyze}
+MostEmailed %>% 
+  group_by(section,published_date) %>%
+  filter(published_date > '2020-01-01') %>%
+  ggplot() +
+  geom_bar(aes(x = section, fill = published_date)) +
+  ggtitle("Most Emailed Articles") +
+  xlab("Sections") +
+  ylab("Count") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(fill = "Published Year")
+```
+
+## Conclussion: 
+
+#### NY Times.com offers a platfiom for developers where we can access their APIs, after I created an account with them, I was able to obtain a key access to their website and from there I was able to get the "most emailed articles API" and import the Json file into R. After that I was able to create a DataFrame, select the data to work with, analyzed and visualized the section and published_data column.
+
