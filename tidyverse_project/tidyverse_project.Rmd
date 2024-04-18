@@ -1,0 +1,31 @@
+---
+title: "Tidyverse"
+author: "Victor Torres"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+For this assignment, we have to collaborate around a project in GitHub.Create an example using one or more TidyVerse packages, and any dataset from fivethirtyeight.com or Kaggle, create a programming sample “vignette” that demonstrates how to use one or more of the capabilities of the selected TidyVerse package with your selected dataset.
+
+I selected to work with a club soccer predictions dataset from the fivethirtyeight.com website, and I will use dplyr, tidyr, ggplot2, and kable libraries to tidy the data in this dataset.
+
+```{r libraries}
+library(tidyverse)
+library(kableExtra)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
