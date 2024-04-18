@@ -20,12 +20,71 @@ library(tidyverse)
 library(kableExtra)
 ```
 
-## Including Plots
+### Import files into R
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r import files into R}
+soccer_data <- read.csv("https://raw.githubusercontent.com/vitugo23/DATA607/main/tidyverse_project/soccer-spi/spi_global_rankings_intl.csv")
+head(soccer_data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Renaming columns with dplyr:: rename().
+
+```{r change names}
+soccer_data %>% 
+  rename( 
+    team = name,
+    zone = confed,
+    offense = off,
+    defense = def
+  )
+soccer_data
+```
+
+### Display countries with highest scores using slice function in dplyr, and display results using a kable extra table
+
+```{r}
+top_10 <- soccer_data |>
+slice_max(spi, n = 10)
+kable(top_10)
+```
+
+
+### Remove NA's values from rows using the drop_na function from tidyr
+
+```{r remove}
+soccer_data <- soccer_data %>% drop_na()
+
+print(soccer_data)
+```
+
+### Get the dimensions of dataframe using the dim function
+
+```{r dim}
+dim(soccer_data)
+```
+
+### Get the mean, median and quantile of the columns.
+
+```{r}
+soccer_data %>%
+ summarise (Mean = mean(soccer_data$off), Median = median(soccer_data$def), Quant = quantile(soccer_data$spi))
+```
+
+### Use ggplot to visualize some stats,
+
+```{r scatter}
+plot(soccer_data$def, soccer_data$off, main="defense vs offense")
+```
+
+### Use ggplot to create a boxplot
+
+```{r boxplot}
+boxplot(off~def,data = soccer_data,
+        main="Boxplot of soccer table",
+        xlab="offense",ylab="defense")
+```
+
+## Conclussion
+I was able to obtain the data from a fivethirtyeight.com and create a vignette to demostrate how to use a few capabilities of tidyverse packages, I use some functions of dplyr, tidyr, ggplot, and kable.
+
+
