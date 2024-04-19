@@ -1,0 +1,97 @@
+---
+title: "Tidyverse EXTEND"
+author: "Victor Torres"
+date: "2024-04-18"
+output: html_document
+---
+## Tidyverse EXTEND
+
+### The Tidyverse CREATE assignment was made by Lucas Weyrich, I decided to work with this data set and add additional tidyding and analysis to it. His work was about a dataset of soccer predictions.
+In this document, I will demonstrate a few packages of the tidyverse.
+Specifically, I will use the packages dplyr to transform the data, tidyr to clean the data, and ggplot2 to plot some of the data. Additionally, readr is used to import the data.
+As demonstrative dataset, we use the soccer performance index (SPI) match data from fivethirtyeight (https://projects.fivethirtyeight.com/soccer-predictions/). 
+
+Below, we load the packages and then the data.
+```{r libraries}
+library(tidyverse)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(readr)
+library(kableExtra)
+```
+
+```{r}
+spi = read_csv('https://raw.githubusercontent.com/lucasweyrich958/DATA607/main/spi_matches.csv')
+glimpse(spi)
+```
+
+
+As we can see, this is a big data frame with almost 70,000 rows. It contains games outcomes and SPIs, alongside predictions of several seasons and leagues. In order to tailor the dataset a bit more for this demonstration, we use only the 2022 season of the UEFA Champions League. This is a tournament that is played besides the regular leagues for which only the 1st to 4th place (some only 1st and 2nd) of each league qualify to play in, making it a literal Champions League. Below we clean up the dataframe.
+
+```{r}
+cl_2022 = spi %>%
+  filter(season == 2022, league == 'UEFA Champions League')
+glimpse(cl_2022)
+```
+
+Looking at the new data frame, we can see that it is cleaned up, as it retained only 125 rows, therefore, 125 games. Since we're working with the best teams of European soccer here, and therefore likely also across the world, it would be interesting to look at a time-series of the average SPI for each game. It should be very high from the beginning, but since the tournament contains a knock-out round, the average SPI should increase over the season. To do this, we'll create a new column, the average out of both team's SPIs for each game, and then plot it over time.
+```{r}
+cl_2022 = cl_2022 %>%
+  mutate(avg_spi = (spi1 + spi2) / 2)
+
+ggplot(cl_2022, aes(date, avg_spi)) +
+  geom_line() +
+  labs(x = "Date", y = "Average SPI", title = "Average SPI Across CL 2022/23 Season") +
+  geom_hline(yintercept = mean(cl_2022$avg_spi), color = "#5755FE", linetype = "dashed") +
+  theme_minimal()
+```
+
+While this graph is certainly not pretty, it confirms our idea: average SPI increases over the season. The big gap in the middle is the break between the group phase and the knock-out round, to which not every team advances. Therefore, it makes sense that the average game SPI increases at that point already. Interestingly, the final is not the game with the highest SPI, which appears to be either the quarter or semi final. This shows additionally the importance of seeding in a tournament, which does not take place in the CL, it is drawn completely randomly. Additionally, the horizontal line shows the average SPI of all games, which is just under 80, making it a quite strong tournament.
+
+## EXTEND.
+
+### I am going to subset some columns to reduce the amount of data on it, and display table using kable function
+
+```{r subset1}
+extend_ucl = subset(cl_2022,select = -c(league_id,importance1,importance2,xg1,xg2,nsxg1,nsxg2,adj_score1,adj_score2,avg_spi))
+kable(head(extend_ucl))
+```
+
+### Select columns to work with.
+
+```{r select}
+extend_ucl1 <- extend_ucl %>%
+  select(team1, team2, proj_score1, prob1, prob2, proj_score2, score1, score2)
+kable(head(extend_ucl1))
+```
+
+### Filter team1 with "Real Madrid" team.
+
+```{r filter}
+extend_ucl2 = extend_ucl1 %>%
+  filter(team1 == "Real Madrid")
+kable(head(extend_ucl2))
+```
+
+### Plot of projections of "Real Madrid" team against oponents 
+
+```{r plot1}
+ggplot(data = extend_ucl2, aes(x = "Real Madrid", y = team2 ,col = proj_score1), col= red)+ geom_boxplot() +labs(title="Projections Real Madrid vs Oponents",) + theme(plot.title = element_text(hjust=0.5))
+```
+
+```{r}
+ extend_ucl2 %>% group_by("Real Madrid",team2,proj_score2) %>%
+  summarise(team1 = n()) %>%
+  arrange(desc(team2)) %>%
+  ggplot(aes(x = "Real Madrid", y = team2, fill = proj_score2)) +
+  geom_bar(position = "dodge", stat="identity")+
+  scale_fill_gradient(low = "blue4", high = "springgreen1")+
+  theme_light()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+labs(height=10, width=5)+
+  coord_flip() + labs(title = "Projections 2 Madrid vs Rivals",x= "Madrid", y = "rivals")
+```
+
+## Conclussion.
+
+### After working with my own vignette and being able to upload it and to the clone a repositorie, I was able to download a .rmd file from the shared repositorie and work with it. I decided to subset some of the columns in the dataset, to work with only one team, and make a analysis of how "Real Madrid" projections were againts its rivals in the UCL 2022, I created two visualizations, a boxplot displaying the results of project scores 1, and a bar plot with project scores 2. 
