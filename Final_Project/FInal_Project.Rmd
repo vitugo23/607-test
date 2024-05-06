@@ -1,0 +1,317 @@
+---
+title: "Final Project"
+author: "Victor Torres"
+date: "2024-05-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Final Project
+
+The main goal of the Final Project is to demonstrate all the tools and skills learned in this course, I am going to obtain the data from two different sources, clean and tyding the data, analyze  it, and display graphic visualizations using all the libraries and packages available to do these tasks.
+
+### Motivation
+
+The aim of my analysis is to challenge myself and to prove that I gained the skills and knowledge need it to become in a data scientist. I decided to choose a public dataset from the NYC open data, about the New York City leading causes of death in 2021, as well as a public data set from the state of New Jersey from the same year, to make analysis between the two dataframes.
+This dataset contains rich data to work with, it has information about leading causes of death by in the city in 2021, which includes the year, cause of death, sex, etc.
+In addition to this data, I would like to include a similar dataset from Bergen County in New Jersey, to make a comparison and to analyze scenarios and causes of deaths in both cities. I am going to choose the year 2021 in both data sets, to review the amount of deaths caused by COVID 19.
+
+I decided to choose this topic because I lost several friends and relatives during that period of time because of the pandemic, and I would like to find out more about it.
+
+### Data Sources
+
+For the final project, I'll be using two data sources, the first one is from the NYC open data website, that contains the leading causes of death. The second data set is from the New Jersey's data hub website, and it contains the same information on it.
+Both dataframes contains rich data about main causes of death, the year, gender,  ethnicity, etc.
+
+#### Load the required libraries for the project
+
+```{r libraries}
+library(rvest)
+library(tidyverse)
+library(readxl)
+library(kableExtra) 
+library(stringr)
+library(lubridate)
+library(RTextTools)
+```
+
+## Import first dataset from a web page to scrape it
+
+```{r ny data}
+web_content <- read_html("https://www.health.ny.gov/statistics/vital_statistics/2021/table33a.htm")
+nyc_data <- web_content %>% html_table(fill = TRUE)
+nyc_data
+
+```
+
+### Convert HTML table to a DataFrame
+
+```{r convert HTML}
+nyc_data <- as.data.frame(nyc_data)
+nyc_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Remove codes column
+
+```{r}
+nyc_data <- nyc_data[, -which(names(nyc_data) == 	"ICD10.Code.s.")]
+nyc_data
+```
+
+### Rename the columns for better understanding
+
+```{r rename1}
+colnames(nyc_data)[1] = "Causes_Death"
+colnames(nyc_data)[2] = "Total_Number"
+colnames(nyc_data)[3] = "Crud_Rate"
+colnames(nyc_data)[4] = "Adjusted_Rate"
+colnames(nyc_data)[5] = "White_Total"
+colnames(nyc_data)[6] = "White_Crude_Rate"
+colnames(nyc_data)[7] = "White_Adjusted_Rate"
+colnames(nyc_data)[8] = "Black_Total"
+colnames(nyc_data)[9] = "Black_Crude_Rate"
+colnames(nyc_data)[10] = "Black_Adjusted_Rate"
+nyc_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+
+
+### Remove Commas from numerical Values
+
+```{r no commas}
+nyc_data$Total_Number <- gsub( ",","", nyc_data$Total_Number)
+nyc_data$Crud_Rate <- gsub( ",","", nyc_data$Crud_Rate)
+nyc_data$Adjusted_Rate <- gsub( ",","", nyc_data$Adjusted_Rate)
+nyc_data$White_Total <- gsub( ",","", nyc_data$White_Total)
+nyc_data$White_Crude_Rate <- gsub( ",","", nyc_data$White_Crude_Rate)
+nyc_data$White_Adjusted_Rate <- gsub( ",","", nyc_data$White_Adjusted_Rate)
+nyc_data$Black_Total <- gsub( ",","", nyc_data$Black_Total)
+nyc_data$Black_Crude_Rate <- gsub( ",","", nyc_data$Black_Crude_Rate)
+nyc_data$Black_Adjusted_Rate <- gsub( ",","", nyc_data$Black_Adjusted_Rate)
+nyc_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Convert columns to numerical values
+
+```{r numerical v}
+i <- c(2, 3, 4, 5, 6, 7, 8, 9)  
+nyc_data[, i] <- apply(nyc_data[, i], 2, function(x) as.numeric(as.character(x)))
+sapply(nyc_data, class)
+head(nyc_data)
+```
+
+### BarPlot of total number and Causes of death
+
+```{r barplot1}
+barplot(Total_Number ~ Causes_Death, nyc_data,
+        horiz = TRUE, col= 1:4)
+```
+
+### Chart of top 10 causes of death in NYC
+
+```{r plot2}
+nyc_data %>%
+  top_n(10, Causes_Death) %>%
+ggplot() + geom_bar(mapping = aes(x= Total_Number,y =Causes_Death), stat = "identity", position = "dodge", fill = "blue") + 
+  labs(title = "Chart of Deaths by causes", x= "Causes of Death" , y = "Count")
+
+```
+
+### Load second dataFrame from a csv file.
+
+```{r nj data}
+nj_data<-read.csv("C:/Users/vitug/OneDrive/Desktop/DATA_607/NJ1.csv")
+nj_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### remove empty columns from dataset
+
+```{r remove}
+nj_data[ , c('X.9','X.10','X.11','X.12','X.13','X.14','X.15','X.16','X.17','X.18','X.19','X.20','X.21','X.22','X.23','X.24','X.25','X.26','X.27','X.28','X.29','X.30','X.31','X.32')] <- list(NULL)
+nj_data %>%
+ kbl() %>%
+  kable_styling(full_width = F)
+
+```
+
+### rename columns
+
+```{r rename nj}
+colnames(nj_data)[1] = "Causes_Death"
+colnames(nj_data)[2] = "Year"
+colnames(nj_data)[3] = "Male"
+colnames(nj_data)[4] = "Female"
+colnames(nj_data)[5] = "Total"
+colnames(nj_data)[6] = "White"
+colnames(nj_data)[7] = "Black"
+colnames(nj_data)[8] = "Hispanic"
+colnames(nj_data)[9] = "Asian"
+colnames(nj_data)[10] = "Other"
+nj_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+### Convert table to a DataFrame.
+
+```{r data frame}
+nj_data <- as.data.frame(nj_data)
+nj_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Remove row that contained names
+
+```{r rows}
+nj_data1<- nj_data[-c(1,2),]
+nj_data %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+
+```
+
+### Remove empty rows
+
+```{r}
+nj_data2 <- nj_data1[-c(30:61), ]
+nj_data2 %>%
+ kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Remove year column
+
+```{r}
+nj_data3 <- nj_data2[, -which(names(nj_data2) == "Year")]
+nj_data3 %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Transform files from String to numeric.
+
+```{r numeric}
+i <- c(2, 3, 4, 5, 6, 7, 8, 9)  
+nj_data3[, i] <- apply(nj_data3[, i], 2, function(x) as.numeric(as.character(x)))
+sapply(nj_data3, class)
+head(nj_data3)
+```
+
+### Replace NA values rows with zeros.
+
+```{r NA}
+nj_data3[is.na(nj_data3)] <- 0
+nj_data3 %>%
+ kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Create a total row with total sum of columns
+
+```{r}
+#add total row to data frame
+nj_data4 <- nj_data3 %>%
+            bind_rows(summarise(., across(where(is.numeric), sum),
+                                   across(where(is.character), ~'Total')))
+
+#view new data frame
+tail(nj_data4)
+```
+
+### Change data to Long Format
+
+```{r long}
+nj_data5 <- nj_data4 %>% pivot_longer(cols=Total, names_to = "Total Deaths", values_to = "Total_Deaths")
+nj_data5 %>%
+   kbl() %>%
+  kable_styling(full_width = F)
+```
+
+### Plot of main causes of death in NJ
+
+```{r plot3}
+library(reshape2)
+
+nj_data5 |>
+ filter( Causes_Death %in% c("Coronavirus disease 2019 (COVID-19)" ,"Cancer (malignant neoplasms)", "Diseases of heart", "Stroke (cerebrovascular diseases)")) |>
+ggplot( aes(x= Total_Deaths,y = Causes_Death)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ Causes_Death, scales = "free") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_fill_brewer(palette = "Set3") +
+  scale_x_discrete(breaks = unique(nj_data5$Total_Deaths)) +
+labs(title = "Total Deaths By Causes", x= "Total Deaths" , y = "Causes of Death")
+```
+
+### Plot of male vs female deaths
+
+```{r}
+nj_data6 <- nj_data5 %>%
+  filter(nj_data5$Causes_Death == "Coronavirus disease 2019 (COVID-19)")
+
+nj_data6 %>% ggplot(aes(x = Male, y = Female)) + 
+  geom_col(fill = "orange")   
+  labs(title = "COVID 19 Deaths, Male vs Female", x = "Male", y = "Female")
+```
+
+### Plot of white vs Hispanic
+
+```{r plot4}
+ggplot(nj_data6, aes(Male, White, fill = Hispanic)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~Hispanic, ncol = 2, scales = "free_x")
+```
+### I am using the library arsenal to compare between the two databases, I found this tool very useful, and I never used it before.
+```{r}
+library(arsenal)
+comparedf(nyc_data, nj_data5)
+```
+
+```{r}
+summary(comparedf(nyc_data, nj_data5))
+```
+
+### PLot of total number of deaths from both dataframes
+
+```{r}
+nyc_plot <-
+  nyc_data %>% 
+  group_by(Total_Number) %>% 
+summarize(m = mean(Total_Number))  
+
+nj_plot <- 
+  nj_data5 %>% 
+  group_by(Total_Deaths) %>% 
+  summarize(m = mean(Total_Deaths))
+
+ggplot() +
+  geom_point(data = nyc_plot, aes(x = Total_Number, y = m), color = "blue") 
+  geom_point(data = nj_plot, aes(x = Total_Deaths, y = m))
+```
+
+### Violin plot of Causes of Death
+```{r}
+nj_data5 %>% 
+  group_by(Causes_Death) %>% 
+  top_n(5, Causes_Death) %>%
+  ggplot(aes(x = Total_Deaths, y = Causes_Death, group = 'Total Deaths', fill = Total_Deaths)) +
+  geom_violin() 
+```
+
+## Conclussion.
+I was able to obtain data from two different sources (HTML table and a CSV file), I did scraped and clean the data in order to analyze it, The data needed it a lot of cleaning and tyding to start working on it. 
+I did have some difficulties with the plots, I was not able to successfully create a clean, understandable plot, I am not sure if I did not organized the data correctly or maybe i am not inputting the correct code.
+I have to admit that I really enjoy this course, I believe that I learned a lot in the past few weeks, considering that I never used R before, I am proud to say I am on my way achieve my goals to become in a data scientist, I know that I have to still work on my skills, but I'm sure that with practice I will improve my knowledge.
+
