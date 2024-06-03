@@ -1,0 +1,55 @@
+---
+title: "Project Proposal"
+author: "Victor Torres"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+
+## Final Project Proposal
+
+### Objective and Motivation.
+
+When I began this journey of becomming a data scientist, I had trouble identifying the primary targets when performing data analysis in a dataset, making the right questions and choices of what and how to look at data and what to be analized became the biggest challenge in assignments and projects.
+My motivation for the final project is to challenge myself and to prove that I gained the skills and knowledge need it to become in a data scientist. I decided to choose a public dataset from the NYC open data, about the New York City leading causes of death.
+This dataset contains rich data to work with, it has information about leading causes of death by sex and ethnicity in the city since 2007, which includes the year, cause of death sex, etc.
+In addition to this data, I would like to include a similar dataset from another city to make a comparison and to analyze escenario and causes of deaths in both cities.
+
+```{r}
+nyc_chart<-read.csv("C:/Users/vitug/Downloads/New_York_City_Leading_Causes_of_Death_20240416.csv")
+head(nyc_chart)
+```
+
+### Methodology.
+
+I will start by performing exploratory data analysis on both datasets by death causes and ethnicity. I will tidy clean and the data for analysis using the tools learned in this course, for example, handling missing values and correcting inconsistencies, adding new columns with results of analysis, and delete unnecesary data on both dataframes. We will then use visualization techniques such as bar charts,and scatterplots to display the data in a meaningful way and draw conclusions based on the findings findings.
+
+```{r}
+colnames(nyc_chart)[2] = "Cause"
+colnames(nyc_chart)[4] = "Ethnicity"
+
+comparison_col <- colnames(nyc_chart[3:length(nyc_chart)])
+comparison_col
+```
+
+
+```{r}
+nyc_data <- nyc_chart %>% pivot_longer(cols=comparison_col,names_to = "comparison_column", values_to = "Num_of_deaths")
+print(nyc_data)
+```
+
+
+## Conclussion.
+
+By exploring this public dataset, I will gain valuable insights of the leading causes of deaths in NYC and NJ, it will provide me valuable skills learned in this course to work towards my future as a data analyst, and it will bring me challenges of what, why and how to work with data and what questions to ask when I'm performing a data analysis.
+
+

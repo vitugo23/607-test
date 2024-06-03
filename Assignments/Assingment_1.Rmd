@@ -1,0 +1,35 @@
+---
+title: "Week_1_assignment"
+author: "Victor Torres"
+date: "2024-02-03"
+---
+## Assignment 1
+OUr task is to bring a dataframe into R. I choose the 2022 World Cup Predictions database. this dataframe will include a set of predictions of all the matches of the FIFA 2022 world cup.
+Some of the columns in the dataframe are:
+-Date
+-league ID
+-League
+-team1
+-team2
+-probabilities, and projections
+-Scores
+
+
+```{r}
+wc_matches <- read.csv("C:/Users/vitug/Downloads/wc_matches.csv", header=FALSE)
+  View(wc_matches)
+```
+##
+Now I am going to focus on the teams and the predictions of each match
+##
+```{r}
+wc_matches$V4
+```
+
+
+```{r}
+wc_matches$V13
+```
+## Findings and Recommendations
+This is the dataframe that I was able to pull in R console,I would recommend to rename the columns so we can pull more acurate information from the dataframe
+

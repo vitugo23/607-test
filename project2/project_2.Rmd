@@ -1,0 +1,100 @@
+---
+title: "project 2"
+author: "Victor Torres"
+date: "2024-03-02"
+output: html_document
+---
+# Project 2 #
+### The goal of this assignment is to give you practice in preparing different datasets for downstream analysis work. ###
+#### I going tol get the data from a .CSV file that I created. ####
+```{r get data from .CSV file}
+college_data<-read.csv('https://raw.githubusercontent.com/vitugo23/DATA607/main/project2/grad_rates_data.csv')
+dim(college_data)
+head(college_data)
+tail(college_data)
+```
+
+#### Load the libraries required for the project. ####
+```{r}
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+
+#### Name columns on data frame. #####
+```{r}
+colnames(college_data)[1] = "race"
+colnames(college_data)[2] = "total_graduates"
+colnames(college_data)[3] = "Percentage"
+colnames(college_data)[4] = "5Y_Grad_rate"
+colnames(college_data)[5] = "total1"
+colnames(college_data)[6] = "assos_dg_rate"
+colnames(college_data)[7] = "total2"
+colnames(college_data)[8] = "bachelor_dg_rate"
+colnames(college_data)[9] = "total3"
+colnames(college_data)[10] = "Master_dg_rate"
+colnames(college_data)[11] = "total4"
+colnames(college_data)[12] = "PHD_dg_rate"
+colnames(college_data)[13] = "total5"
+total_graduates <- colnames(college_data[2:length(college_data)])
+glimpse(college_data)
+```
+#### Remove tittle rows in data frame. ####
+```{r}
+tidycollege <- tail(college_data, -1) %>%
+  select(-c(1))
+
+head(college_data)
+tidycollege$Item
+```
+#### Remove commas, and change values from string to numerical. ####
+```{r}
+college_data[total_graduates] <- college_data[total_graduates] %>% apply(MARGIN = 2, FUN = function(x) as.numeric(str_remove(x,",")))
+
+print(total_graduates)
+```
+#### Change format of data to long format ####
+```{r}
+l_data <- college_data %>% pivot_longer(cols=total_graduates,names_to = "Comparison", values_to = "total_Comp")
+print(l_data)
+```
+
+```{r}
+l_data <- l_data %>% mutate(Race = ifelse(race == "", NA, race))
+
+print(l_data)
+```
+
+```{r}
+l_data <- l_data %>% fill(race)
+print(l_data)
+
+```
+
+```{r}
+l_data <- l_data %>% janitor::clean_names()
+
+print(l_data)
+```
+
+```{r}
+t_data <- l_data %>% spread(key=percentage, value=comparison)
+
+print(t_data)
+
+```
+
+```{r}
+t_data <- t_data %>% janitor::clean_names()
+
+print(t_data)
+```
+
+```{r}
+library(ggplot2)
+ggplot(college_data) +
+  geom_point(mapping = aes(x=race, y=total_graduates))
+```
+
+
+
