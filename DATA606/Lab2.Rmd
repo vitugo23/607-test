@@ -1,0 +1,163 @@
+---
+title: "Introduction to Data"
+author: "Victor H. Torres"
+output:
+  pdf_document: default
+  html_document:
+    includes:
+      in_header: header.html
+    css: ./lab.css
+    highlight: pygments
+    theme: cerulean
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+--- 
+
+```{r get libraries need it for project}
+library(tidyverse)
+library(openintro)
+```
+
+```{r get data }
+data(nycflights)
+names(nycflights)
+?nycflights
+```
+
+
+```{r glimpse}
+glimpse(nycflights)
+```
+```{r Depature Delays}
+ggplot(data = nycflights, aes(x = dep_delay)) +
+  geom_histogram()
+```
+```{r histogram 1}
+ggplot(data = nycflights, aes(x = dep_delay)) +
+  geom_histogram(binwidth = 15)
+```
+```{r histogram 2}
+ggplot(data = nycflights, aes(x = dep_delay)) +
+  geom_histogram(binwidth = 150)
+```
+#EXERCISE 1
+#Look carefully at these three histograms. How do they compare? Are features revealed in one that are obscured in another?
+#Insert your answer here
+##The three histograms contains the same data( nyc flights/dep_delay), the only difference is the visualization of the data. The argument "binwidth" controls the width of the bin representing the X-axis, crearly we can see the difference in the plots above.
+
+
+```{r LA vs NYC flights histogram}
+lax_flights <- nycflights %>%
+  filter(dest == "LAX")
+ggplot(data = lax_flights, aes(x = dep_delay)) +
+  geom_histogram()
+```
+```{r finding numerical summaries}
+lax_flights %>%
+  summarise(mean_dd   = mean(dep_delay), 
+            median_dd = median(dep_delay), 
+            n         = n())
+```
+```{r create a SFO variable}
+sfo_feb_flights <- nycflights %>%
+  filter(dest == "SFO", month == 2)
+```
+#EXERCISE 2
+##Create a new data frame that includes flights headed to SFO in February, and save this data frame as sfo_feb_flights. How many flights meet these criteria?
+##Insert your answer here
+###We can find 68 flights with this criteria (Flight from NYC to SFO in February)
+```{r}
+sfo_feb_flights <- nycflights %>%
+  filter(dest == "SFO", month == 2)
+```
+#EXERCISE 3
+##Describe the distribution of the arrival delays of these flights using a histogram and appropriate summary statistics. Hint: The summary statistics you use should depend on the shape of the distribution.
+##Insert your answer here
+```{r arrival delays from NYC to SFO}
+ggplot(data = sfo_feb_flights, aes(x = arr_delay)) +
+  geom_histogram(binwidth = 10)
+```
+
+
+
+
+```{r histogram of SFO_FEB_FLIGHTS}
+sfo_feb_flights %>%
+  group_by(origin) %>%
+  summarise(median_dd = median(dep_delay), iqr_dd = IQR(dep_delay), n_flights = n())
+
+```
+#EXERCISE 4
+##Calculate the median and interquartile range for arr_delays of flights in in the sfo_feb_flights data frame, grouped by carrier. Which carrier has the most variable arrival delays?
+###The most variable arrival delays bolongs to AA
+#Insert your answer here
+```{r median and interquartile histogram}
+sfo_feb_flights %>%
+  group_by(carrier) %>%
+  summarise(median_dd = median(arr_delay), iqr_rg = IQR(arr_delay))
+```
+```{r histogram of NYC flights by month}
+nycflights %>%
+  group_by(month) %>%
+  summarise(mean_dd = mean(dep_delay)) %>%
+  arrange(desc(mean_dd))
+
+```
+#EXERCISE 5
+##Suppose you really dislike departure delays and you want to schedule your travel in a month that minimizes your potential departure delay leaving NYC. One option is to choose the month with the lowest mean departure delay. Another option is to choose the month with the lowest median departure delay. What are the pros and cons of these two choices?
+##Insert your answer here
+###The prons and cons are several. I did a calculation below with the lowest mean depature delay and lowest median depature delay (months 7 and 6) based on the data it would be de ideal dates to travel, however, the data can vary from other data frames such as arrival time, arrival delays, etc.
+```{r delays from NYC by month}
+nycflights %>%
+  group_by(month) %>%
+  summarise(mean_dd = mean(dep_delay), med_dd = median(dep_delay)) %>%
+  arrange(desc(mean_dd), (med_dd))
+```
+```{r create a new variable with mutate function}
+nycflights <- nycflights %>%
+  mutate(dep_type = ifelse(dep_delay < 5, "on time", "delayed"))
+
+```
+
+```{r new dep_type variable}
+nycflights %>%
+  group_by(origin) %>%
+  summarise(ot_dep_rate = sum(dep_type == "on time") / n()) %>%
+  arrange(desc(ot_dep_rate))
+```
+#EXERCISE 6
+##If you were selecting an airport simply based on on time departure percentage, which NYC airport would you choose to fly out of?
+```{r dep_type plot}
+ggplot(data = nycflights, aes(x = origin, fill = dep_type)) +
+  geom_bar()
+
+```
+##Insert your answer here
+###Based on the data and the chart, the best airport to based on timedepature percentage it will be LGA
+
+#EXERCISE 7
+##Mutate the data frame so that it includes a new variable that contains the average speed, avg_speed traveled by the plane for each flight (in mph). Hint: Average speed can be calculated as distance divided by number of hours of travel, and note that air_time is given in minutes.
+##insert your answer here
+```{r new variable avg_speed created}
+nycflights <- nycflights %>%
+  mutate(avg_speed = distance / (air_time / 60))
+```
+#EXERCISE 8
+##Make a scatterplot of avg_speed vs. distance. Describe the relationship between average speed and distance. Hint: Use geom_point().
+##insert your answer here
+```{r Scatterplot of avg speed vs distance}
+ggplot(data = nycflights, mapping = aes(x = distance, y = avg_speed)) +
+        geom_point()
+```
+
+
+#EXERCISE 9
+##Replicate the following plot. Hint: The data frame plotted only contains flights from American Airlines, Delta Airlines, and United Airlines, and the points are colored by carrier. Once you replicate the plot, determine (roughly) what the cutoff point is for departure delays where you can still expect to get to your destination on time.
+##insert your answer here
+```{r replica of plot}
+c_delay <- nycflights %>%
+  filter(carrier == 'AA' | carrier == 'DL' | carrier == 'UA')
+ggplot(c_delay, aes(dep_delay, arr_delay, color = carrier)) + geom_point()
+```

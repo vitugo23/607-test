@@ -1,0 +1,249 @@
+---
+title: "Final Project 606"
+author: "Victor Torres"
+date: "2024-05-13"
+output:
+  always_allow_html: true
+  html_document: default
+  pdf_document: default
+---
+
+## Introduction
+I decided to work with a dataset that contains NYC vaccination rates by age, gender, borough, etc. This data contains 15 columns with rich data for this project.
+
+## Research Question and objective of the study
+Relationship of age group and vaccination rate in NYC got the COVID 19 vaccine until 2023?
+Correlation between age group, etchnicity, fully vaccinated, and people with first dose.
+The main objective is to create several variables to study the relationship between several aspects of this dataset, find statistical values in columns, and combine columns values to answer my research questions above.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Source
+I'm going to work with data New York City DOH Website:
+https://www.nyc.gov/site/doh/covid/covid-19-data-vaccines.page
+This dataset provides data about vaccinations rate by age, borough, ethnicity, etc.
+
+## Type of Study
+This is a research and observational study, since the city of New York collected the data based on data from hospitals and vaccination sites throughout the city.
+
+## Load Libraries requiered for the project
+
+```{r libraries}
+library(tidyverse)
+library(plyr)
+library(tidyr)
+library(ggthemes)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(RCurl)
+library(knitr)
+library(tidyselect)
+library('StMoSim')
+library(data.table)
+library(readxl)
+library(lattice)
+library(MASS)
+```
+
+## Load data from NYC DOH GitHub Account
+
+```{r load data}
+nyc_file <- read_csv("https://raw.githubusercontent.com/nychealth/covid-vaccine-data/main/people/coverage-by-boro-demo.csv")
+head(nyc_file)
+```
+
+
+## Tyding the data
+
+Replace spaces with _ and convert column titles to lower cases
+
+```{r replace}
+names(nyc_file) %<>% stringr::str_replace_all(" ","_") %>% tolower
+head(nyc_file)
+```
+
+## Get summary of dataframe
+
+```{r summaries}
+data.frame(unclass(summary(nyc_file)))
+```
+
+### Plot of people with one dose by age
+
+```{r plot}
+age <-
+   ggplot(nyc_file, aes(age_group, count_1plus_cumulative, group = 1)) + 
+   geom_line(linetype = "dashed", color = "orange") + geom_point()+
+   ggtitle("Count of people with one dose by age") + xlab("Age Group") + ylab("One dosis") +
+   theme(
+     plot.title = element_text(color="red", size=15, face="bold.italic"),
+     axis.text.x = element_text(angle=60, hjust=1),
+     axis.title.x = element_text(color="blue", size=13, face="bold"),
+     axis.title.y = element_text(color="blue", size=13, face="bold"))
+ggplotly(age)
+```
+
+### Plot of Group Age with one dose of vaccine with a 95% CI
+
+```{r plot 1}
+ggplot(nyc_file, aes(x = age_group, y = count_1plus_cumulative)) + geom_point(color='orange')+geom_smooth(method="auto", se=TRUE, fullrange=FALSE, level=0.95, color="red")
+```
+
+### Histogram of cumulative data of people with only one dose.
+
+```{r histogram}
+histogram(~ count_1plus_cumulative, data = nyc_file)
+```
+
+### Density plot of people with only one dose
+
+```{r}
+densityplot(~ count_1plus_cumulative, data = nyc_file)
+```
+
+### Plot of fully vaccinated by race
+
+```{r plot2}
+race <-
+   ggplot(nyc_file, aes(race_ethnicity, count_fully_cumulative, group = 1)) + 
+   geom_line(linetype = "dashed", color = "red") + geom_point()+
+   ggtitle("People fully vaccinated by race") + xlab("Race") + ylab("Count") +
+   theme(
+     plot.title = element_text(color="blue", size=15, face="bold.italic"),
+     axis.text.x = element_text(angle=60, hjust=1),
+     axis.title.x = element_text(color="blue", size=15, face="bold"),
+     axis.title.y = element_text(color="blue", size=15, face="bold"))
+ggplotly(race)
+```
+
+### Histogram of people fully vaccinated
+
+```{r histogram2}
+histogram(~ count_fully_cumulative, data = nyc_file)
+```
+
+### Densityplot of people fully vaccinated
+
+```{r density2}
+densityplot(~ count_fully_cumulative, data = nyc_file)
+```
+
+### Correlation Function
+I created a function to find the correlation between the total of people with one dose, and those fully vaccinated
+
+```{r correlation}
+correlation_fun <- function() {
+  x = nyc_file$count_fully_cumulative
+  y = nyc_file$count_1plus_cumulative
+  corr = round(cor(x, y),4)
+  print (paste0("Correlation = ",corr))
+  return (corr)}
+c = correlation_fun()
+```
+
+### Linear model function
+I created a function for the m=linear model between the two columns that I'm working with.
+
+```{r linear}
+linear_fun <- function() {
+  m = lm (count_fully_cumulative ~ count_1plus_cumulative, data = nyc_file)
+  s = summary(m)
+  print(s)
+  slp = round(m$coefficients[2], 4)
+  int = round(m$coefficients[1], 4)
+  return (m)}
+m = linear_fun()
+```
+
+## count_fully_cumulative = 60.13 + (8.970e -1)(count_1plus_cumulative )
+
+### Plot linear model using ploty.
+
+```{r ploty}
+lmodel = ggplot(nyc_file, aes(count_fully_cumulative, count_1plus_cumulative, group = 1)) +
+  geom_point(colour="orange") +
+  xlab("Fully Vaccinated") +
+  ylab("1 Dose") +
+  labs(title = "Fully vaccinated vs One Dose") +
+  geom_abline(aes(slope=round(m$coefficients[2], 4), intercept=round(m$coefficients[1], 4), color="yellow"))
+ggplotly(lmodel)
+```
+
+## Linear Regression Results
+We have a positive relationship between Fully Vaccinated and one Dose.
+The intercept is within the data range, meaning that the that fits well with the residual SE, in this dataset.
+Hypothesis Testing give us a strong relationship between fully vaccinated and one dose, we accept the Null Hypothesis since there is a strong relationship between the two variables. 
+Multiple R-squared:  0.9989
+Adjusted R-squared:  0.9989
+
+### Filter data to get people fully vaccinated age 5-12
+
+```{r plot 4}
+age_group <- nyc_file %>%
+  filter(age_group == "'5-12")
+ggplot(data = age_group, aes(x = count_fully_cumulative)) +
+  geom_histogram(binwidth = 550)
+```
+
+### Summary of age_group column fully vaccinated 
+
+```{r summary1}
+age_group %>%
+  summarise(mean_dd   = mean(count_fully_cumulative), 
+            median_dd = median(count_fully_cumulative), 
+            n         = n())
+```
+
+### Create a function to find Hispanic/latino rate fully vaccinated
+
+```{r latino}
+latino_group <- nyc_file %>%
+  filter(race_ethnicity == "Hispanic/Latino")
+ggplot(data = latino_group, aes(x = count_fully_cumulative)) +
+  geom_histogram(binwidth = 500)
+```
+
+### Summary of latino function
+
+```{r summary}
+latino_group %>%
+  summarise(mean_dd   = mean(count_fully_cumulative), 
+            median_dd = median(count_fully_cumulative), 
+            n         = n())
+```
+
+### Filter data to get stats of Hispanic people in Queens
+
+```{r boro}
+boro_var <- nyc_file %>%
+  filter(borough == "Queens", race_ethnicity == "Hispanic/Latino")
+```
+
+### Summary of function boro_var
+
+```{r boro1}
+boro_var %>%
+  group_by(age_group) %>%
+  summarise(median_dd = median(count_fully_cumulative), iqr_rg = IQR(count_1plus_cumulative))
+```
+
+###Plot of young age groups fully vaccinated
+
+```{r}
+age_groups <- nyc_file %>%
+  filter(age_group == "'0-4" | age_group == "'5-12" | age_group == "'13-17")
+ggplot(age_groups, aes(count_fully_cumulative,count_1plus_cumulative , color = age_group)) + geom_point()
+```
+### QQ plot of age group fully vaccinated
+
+## Conclusion:
+I selected two variables to work with, count_fully_cumulative and count_1plus_cumulative, after I created a variable to check the correlation between the two variables I've notice that is going in the same direction, meaning that I have a positive correlation between them. 
+
+From the linear regression model, I accepted the H_0 : Null Hypothesis since the is a strong relationship between them.
+
+Sources:
+https://github.com/nychealth/covid-vaccine-data/tree/main/people#coverage-by-democsv
+https://www.nyc.gov/site/doh/covid/covid-19-data-vaccines.page

@@ -1,1 +1,0 @@
-movies`viewers ratings`SELECT * FROM movie_rating.`viewers ratings`;
