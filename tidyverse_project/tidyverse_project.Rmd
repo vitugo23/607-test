@@ -1,0 +1,90 @@
+---
+title: "Tidyverse"
+author: "Victor Torres"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+For this assignment, we have to collaborate around a project in GitHub.Create an example using one or more TidyVerse packages, and any dataset from fivethirtyeight.com or Kaggle, create a programming sample “vignette” that demonstrates how to use one or more of the capabilities of the selected TidyVerse package with your selected dataset.
+
+I selected to work with a club soccer predictions dataset from the fivethirtyeight.com website, and I will use dplyr, tidyr, ggplot2, and kable libraries to tidy the data in this dataset.
+
+```{r libraries}
+library(tidyverse)
+library(kableExtra)
+```
+
+### Import files into R
+
+```{r import files into R}
+soccer_data <- read.csv("https://raw.githubusercontent.com/vitugo23/DATA607/main/tidyverse_project/soccer-spi/spi_global_rankings_intl.csv")
+head(soccer_data)
+```
+
+### Renaming columns with dplyr:: rename().
+
+```{r change names}
+soccer_data %>% 
+  rename( 
+    team = name,
+    zone = confed,
+    offense = off,
+    defense = def
+  )
+soccer_data
+```
+
+### Display countries with highest scores using slice function in dplyr, and display results using a kable extra table
+
+```{r}
+top_10 <- soccer_data |>
+slice_max(spi, n = 10)
+kable(top_10)
+```
+
+
+### Remove NA's values from rows using the drop_na function from tidyr
+
+```{r remove}
+soccer_data <- soccer_data %>% drop_na()
+
+print(soccer_data)
+```
+
+### Get the dimensions of dataframe using the dim function
+
+```{r dim}
+dim(soccer_data)
+```
+
+### Get the mean, median and quantile of the columns.
+
+```{r}
+soccer_data %>%
+ summarise (Mean = mean(soccer_data$off), Median = median(soccer_data$def), Quant = quantile(soccer_data$spi))
+```
+
+### Use ggplot to visualize some stats,
+
+```{r scatter}
+plot(soccer_data$def, soccer_data$off, main="defense vs offense")
+```
+
+### Use ggplot to create a boxplot
+
+```{r boxplot}
+boxplot(off~def,data = soccer_data,
+        main="Boxplot of soccer table",
+        xlab="offense",ylab="defense")
+```
+
+## Conclussion
+I was able to obtain the data from a fivethirtyeight.com and create a vignette to demostrate how to use a few capabilities of tidyverse packages, I use some functions of dplyr, tidyr, ggplot, and kable.
+
+

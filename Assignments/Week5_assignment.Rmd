@@ -1,0 +1,113 @@
+---
+title: "Week5_Assignment"
+author: "Victor Torres"
+date: "2024-02-25"
+output:
+  html_document: default
+  pdf_document: default
+---
+## I create a .CSV file named "airflight_chart" in excel and uploaded into my Github Account, from there, I downloaded the file into R studio using the read.csv file command to get the information into R studio.##
+```{r download data}
+airflight_chart<-read.csv('https://raw.githubusercontent.com/vitugo23/DATA607/main/airflight_chart.csv', stringsAsFactors = FALSE)
+```
+###loading the libraries required for the assignment. ###
+```{r load libraries}
+library(tidyr)
+library(dplyr)
+library(stringr)
+```
+### I'm going to give a name of the first two columns("Name of airline" and "arrival status"), as well as to collect the names of the cities or destinations. ###
+
+```{r name first two columns}
+colnames(airflight_chart)[1] = "Airline_name"
+colnames(airflight_chart)[2] = "Arrival_Status"
+
+destination_names <- colnames(airflight_chart[3:length(airflight_chart)])
+destination_names
+```
+### I'm removing all NA rows with the "na.omit" command, to make the data look more organized. ###
+```{r remove all NA rows}
+airflight_chart <- airflight_chart %>% na.omit()
+
+print(airflight_chart)
+```
+### I am going to remove the commas from large numbers and covert string into numeric values. I am going to use  "FUN = function(x) as.numeric" command to apply this into my dataset. ###
+```{r remove commas and convert strings into numerical values}
+airflight_chart[destination_names] <- airflight_chart[destination_names] %>% apply(MARGIN = 2, FUN = function(x) as.numeric(str_remove(x,",")))
+
+print(airflight_chart)
+```
+### I'm going to change data type from wide to long, to make the dataset more organized, also, I'm going to name two more columns(Name of destination and Number of flights) to display the data in a long form. ###
+```{r change data to long format, name two new columns}
+l_data <- airflight_chart %>% pivot_longer(cols=destination_names,names_to = "Destination_name", values_to = "Num_of_flights")
+print(l_data)
+```
+### Replace the empty spaces with a "NA" value to make the table more professional. ###
+```{r replace empty spaces with NA values}
+l_data <- l_data %>% mutate(Airline_name = ifelse(Airline_name == "", NA, Airline_name))
+
+print(l_data)
+```
+```{r fill missing values with airline name}
+l_data <- l_data %>% fill(Airline_name)
+print(l_data)
+```
+### Use janitor function to clean the dirty data. ###
+```{r clean dirty data with janitor function}
+l_data <- l_data %>% janitor::clean_names()
+
+print(l_data)
+```
+```{r spread the arrival status field for better understanding}
+t_data <- l_data %>% spread(key=arrival_status, value=num_of_flights)
+
+print(t_data)
+```
+```{r use janitor function one more time, to clean data}
+
+t_data <- t_data %>% janitor::clean_names()
+
+print(t_data)
+```
+### Remove dots "." from city name with str_replace function. ###
+```{r remove "." from city names}
+t_data <- t_data %>% mutate(destination_name = str_replace(destination_name, "\\.", " "))
+
+print(t_data)
+```
+#Analisys#
+### I am adding a number of flights, delayed, and on time fields to analized data between the two airlines.###
+```{r create three new fields to analize the data frame}
+airflight_data <- t_data
+
+
+airflight_data <- airflight_data %>% mutate(num_of_flights = delayed+on_time,
+                                  pct_delayed = delayed/num_of_flights,
+                                  pct_ontime = on_time/num_of_flights)
+
+print(airflight_data)
+
+```
+### compare between two airlines total flights, delayed, on time, and the percentage of each one to analisys. ###
+```{r comaparation between two airlines}
+airline_summary <- airflight_data %>% group_by(airline_name) %>% summarize(total_delayed = sum(delayed),
+                                              total_ontime = sum(on_time),
+                                              total_flights = sum(num_of_flights),
+                                              pct_delayed = (total_delayed/total_flights),
+                                              pct_ontime = (total_ontime/total_flights))
+
+print(airline_summary)
+```
+```{r graphic}
+library(ggplot2)
+ggplot(data=airline_summary, aes(x=airline_name, y=total_delayed, fill=airline_name)) +
+  geom_bar(stat='identity') +
+  labs(title = "\n Number of Delayed Flights by Airline", y="Number of Delayed Flights", fill="Airline Name") +
+  theme(axis.title.x = element_blank()) + 
+  geom_text(aes(label=total_delayed), vjust = 1.2,position = position_dodge(.8), size = 4)
+```
+
+
+# Conclusion. #
+#### I was able to create a .CSV file with the data of two airlines. Using tidyng functions, I did transformed the data from the CSV file to a data frame in R and analize the data. After I finished analizing the information within the table I came with a conclusion that AM West Airlines has more than 50% more delayed flights than Alaska airlines, although, AM has more completed flights than Alaska. ####
+
