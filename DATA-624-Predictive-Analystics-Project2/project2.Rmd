@@ -1,0 +1,772 @@
+---
+title: "DATA 624 - Predictive Analystics - (Project 2)"
+author: "Beshkia Kvarnstrom, Nikoleta Emanouilidi, Evan McLaughlin, Victor Torres & Vladimir"
+output: rmdformats::readthedown
+date: "2024-12-03"
+---
+
+```{r setup, include=FALSE, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# INSTRUCTIONS
+
+
+Hide Assignment Information
+Instructions
+Project #2 (Team) Assignment
+
+This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the predictive factors and be able to report to them our predictive model of PH.
+Please use the historical data set I am providing.  Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a  business friendly readable document and your predictions in an Excel readable format.   The technical report should show clearly the models you tested and how you selected your final approach.
+
+Please submit both Rpubs links and .rmd files or other readable formats for technical and non-technical reports.  Also submit the excel file showing the prediction of your models for pH.
+
+Due on Dec 15, 2024 11:59 PM
+
+# Load Packages
+
+The following code below loops through the list of necessary packages and checks to determine if each is installed. If the package is not found it is installed and loaded.
+
+```{r Load Packages, message=FALSE, warnings=FALSE}
+pkges <- c( "readr", "kableExtra", "readxl", "summarytools", "dplyr", "caret", "randomForest", "glmnet", "tidyr", "reshape2", "mice")
+
+# Loop through the packages
+for (p in pkges) {
+  # Check if package is installed
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE) #If the package is not installed, install the package with dependencies
+    
+    library(p, character.only = TRUE) #Load the package
+  } else {
+    library(p, character.only = TRUE) #If the package is already installed, load the package
+  }
+}
+
+for (p in pkges) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    suppressWarnings(install.packages(p))
+  }
+  suppressWarnings(library(p, character.only = TRUE))
+}
+
+
+```
+
+# DATA EXPLORATION
+
+## Load The Data 
+The script retrieves training (StudentData.xlsx) and test datasets (StudentEvaluation.xlsx) from GitHub, reads them into data frames, and removes the temporary files to maintain a clean workspace.
+
+```{r Load Training and Test data, message=FALSE, warnings=FALSE}
+
+# Define the URL for the training data
+StudentData_url <- "https://raw.githubusercontent.com/BeshkiaKvarnstrom/DATA-624-Predictive-Analystics-Project2/main/StudentData.xlsx"
+
+# Download the training data from the GitHub repository
+download.file(StudentData_url, destfile = "StudentData.xlsx", mode = "wb", quiet = TRUE)
+
+# Read the StudentData Excel file into a data frame
+Student_Train <- read_excel("StudentData.xlsx")
+
+unlink("StudentData.xlsx") # Delete the downloaded file to clean up the workspace
+
+# Define the URL for the test data
+StudentEval_url <- "https://raw.githubusercontent.com/BeshkiaKvarnstrom/DATA-624-Predictive-Analystics-Project2/main/StudentEvaluation.xlsx"
+
+# Download the test data from the GitHub repository
+download.file(StudentEval_url, destfile = "StudentEvaluation.xlsx", mode = "wb", quiet = TRUE)
+
+# Read the StudentEvaluation Excel file into a data frame
+Student_Eval <- read_excel("StudentEvaluation.xlsx")
+
+unlink("StudentEvaluation.xlsx") # Delete the downloaded file to clean up the workspace
+
+```
+
+## View The Data
+
+Performs analysis of the Student_Train dataset and display a summary of the structure of the dataset, helping to understand the data's composition.
+
+```{r Observations, message=FALSE, warnings=FALSE, echo=FALSE}
+
+# Count categorical variables
+categorical_vars <- sum(sapply(Student_Train, function(col) is.character(col) || is.factor(col)))
+
+# Number of predictor variables
+predictor_vars <- ncol(Student_Train) - 1  # Subtract 1 for the target variable
+
+# Print the number of observations in the dataset
+cat("There are ", nrow(Student_Train), " observations/cases in the Student Training dataset.\n\n")
+
+# Print information about the dataset
+cat('There are ',ncol(Student_Train),' columns/elements in the Student Training dataset\n\n')
+
+cat("There are ", categorical_vars, " Categorical Variables in the Student Training dataset.\n\n")
+
+cat("There are ", predictor_vars, " Predictor Variables in the Student Training dataset. \n\n")
+
+
+```
+Display both a structural overview and a statistical summary of the training dataset.
+
+```{r glimpse training data, message=FALSE, warnings=FALSE}
+
+# provides a quick overview of the structure of the training data.
+glimpse(Student_Train)
+
+# Generate a statisical summary of the Training dataset
+summary(Student_Train)%>% kable() %>% 
+  kable_styling(bootstrap_options = "striped", font_size = 12,) %>% 
+  scroll_box(height = "100%", width = "100%", fixed_thead = T)
+
+```
+
+Display the first 10 observations/cases in the Student Training dataset.
+
+```{r View Training data from Github, message=FALSE, warnings=FALSE}
+
+head(Student_Train, 10) %>% kable() %>% 
+  kable_styling(bootstrap_options = "striped", font_size = 12,) %>% 
+  scroll_box(height = "100%", width = "100%", fixed_thead = T)
+
+```
+
+# DATA WRANGLING
+
+The following functions help clean and preprocess the dataset by handling missing values, outliers, feature scaling, and constant columns.
+```{r data wrangling functions, message=FALSE, warnings=FALSE}
+
+impute_missing_values <- function(data, method = "pmm", m = 5, maxit = 50, seed = 81282, return_model = FALSE) {
+  
+  # Run mice to impute missing values
+  mice_model <- mice(data, m = m, method = method, maxit = maxit, seed = seed, printFlag = FALSE)
+  
+  if (return_model) {
+    return(mice_model)  # Return the mice_model if specified
+  }
+  
+  # Return the completed dataset (first imputed dataset)
+  data_imputed <- complete(mice_model, 1)
+  
+  return(data_imputed)
+}
+
+# Outlier Detection and Treatment - detects and removes outliers using the Interquartile Range (IQR) method.
+remove_outliers <- function(data, columns) {
+  for (col in columns) {
+    if (is.numeric(data[[col]])) {
+      Q1 <- quantile(data[[col]], 0.25, na.rm = TRUE)
+      Q3 <- quantile(data[[col]], 0.75, na.rm = TRUE)
+      IQR <- Q3 - Q1
+      lower_bound <- Q1 - 1.5 * IQR
+      upper_bound <- Q3 + 1.5 * IQR
+      
+      data <- data[data[[col]] >= lower_bound & data[[col]] <= upper_bound, ]
+    }
+  }
+  
+  return(data)
+}
+
+# Scales numeric features to a range of 0-1 or normalizes them to have a mean of 0 and standard deviation of 1.
+scale_features <- function(data, method = "minmax") {
+  data_scaled <- data
+  
+  for (col in names(data)) {
+    if (is.numeric(data[[col]])) {
+      if (method == "minmax") {
+        data_scaled[[col]] <- (data[[col]] - min(data[[col]], na.rm = TRUE)) / 
+                              (max(data[[col]], na.rm = TRUE) - min(data[[col]], na.rm = TRUE))
+      } else if (method == "zscore") {
+        data_scaled[[col]] <- (data[[col]] - mean(data[[col]], na.rm = TRUE)) / 
+                              sd(data[[col]], na.rm = TRUE)
+      }
+    }
+  }
+  
+  return(data_scaled)
+}
+
+# Replacing Zero or Constant Columns
+remove_constant_columns <- function(data) {
+  data_cleaned <- data[, sapply(data, function(col) length(unique(col)) > 1)]
+  return(data_cleaned)
+}
+
+
+```
+
+The following provides a comprehensive analysis of missing data by both displaying a table of missing values per column and generating a bar plot to visualize the distribution of missing values across variables. The table allows for detailed inspection, while the plot gives a quick overview of the missing data across the dataset.
+
+The MFR has the highest percentage of missing data (8.2%), while Density has the least (0%). Many of the variables have relatively low missing data (around 0.1% to 0.5%). While some variables, particularly MFR, Brand Code, Filler Speed, and others, have missing values in the range of 1% to 8%, which will be imputed in the data cleaning process.
+
+```{r missing, message=FALSE, warnings=FALSE}
+
+cat("Missing values per column:\n\n")
+
+# Set the option to disable the warning about large data
+options(visdat.warn_large_data = FALSE)
+
+# Identify the variables with missing values
+Student_Train %>%
+  mutate(across(everything(), as.character)) %>%  # Convert all columns to character
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  filter(is.na(value)) %>%
+  group_by(variable) %>%
+  tally() %>%
+  mutate(percent = n / nrow(Student_Train) * 100) %>%
+  mutate(percent = paste0(round(percent, 1), "%")) %>%
+  arrange(desc(n)) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = "striped", font_size = 12, full_width = F, position = "left") %>% 
+  scroll_box(height = "100%", width = "100%", fixed_thead = T)
+
+# Visualize NA counts for each column
+Student_Train %>%
+  summarise_all(list(~sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "variables", values_to = "missing") %>%
+  ggplot(aes(x = missing, y = variables, fill = as.factor(missing))) +
+  geom_col() +
+  labs(title = "Missing Value Counts for Each Variable",
+       x = "Count",
+       y = "Variables",
+       fill = "Missing") +
+  theme_minimal()
+
+
+```
+The following calculates and visualizes the correlations between numeric variables in the Student_Train dataset using a heatmap. It highlights the strength and direction of the relationships between variables, with negative correlations shown in blue, positive correlations in red, and zero correlations in gray. The heatmap provides an intuitive way to identify strong or weak correlations in the dataset.
+
+```{r Plot Correlation, message=FALSE, warnings=FALSE}
+
+# Select the numeric variables
+numeric_data <- Student_Train %>%
+  dplyr::select(where(is.numeric))
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(numeric_data, use = "complete.obs")
+
+# Melt the correlation matrix for visualization
+melted_corr <- melt(correlation_matrix)
+
+# Plot the correlation heatmap
+ggplot(melted_corr, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "gray") +
+  scale_fill_gradientn(
+    colors = c("blue", "lightblue", "white", "pink", "red"),
+    values = scales::rescale(c(-1, -0.5, 0, 0.5, 1)),
+    limits = c(-1, 1),
+    space = "Lab"
+  ) +
+  theme_minimal() +
+  labs(title = "Correlation Heatmap", x = "Variables", y = "Variables", fill = "Correlation") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+The following boxplots represents the distribution of values for a different variable in the Student_Train dataset (excluding the first column). Each plot is labeled with the variable name, and the boxplots are horizontally oriented with a custom color scheme. This visualization helps to identify the spread, central tendency, and potential outliers for each variable.
+
+```{r Outliers, message=FALSE, warnings=FALSE}
+
+# Set up a 3x4 layout for the plots
+par(mfrow = c(3, 4), mar = c(4, 4, 2, 1))  # Adjust margins for better spacing
+
+# Loop through each column in the dataset
+for (i in colnames(Student_Train[-1])) {
+  boxplot(Student_Train[, i], 
+          xlab = names(Student_Train[i]),
+          main = names(Student_Train[i]), 
+          col = "#785B8F", 
+          horizontal = TRUE)
+}
+
+
+```
+
+
+```{r}
+numeric_columns <- sapply(Student_Train, is.numeric)
+
+numeric_data <- Student_Train[, numeric_columns]
+
+```
+```{r}
+par(mfrow = c(3, 4), mar = c(2, 2, 2, 1))  # Smaller margins for each plot
+for (i in seq_along(numeric_data)) {
+  hist(numeric_data[[i]], 
+       main = colnames(numeric_data)[i], 
+       xlab = colnames(numeric_data)[i], 
+       col = "darkblue", 
+       border = "white")
+}
+
+```
+
+Variables that are highly Right-Skewed are: PSC, PSC Fill, PSC CO2,Hyd Pressure1-3, Oxygen Filler, Air Pressurer.
+A suggested Transformation would be to apply a logarithmic or a square root transformation to reduce skewness.
+
+The clean_data function is a comprehensive data preprocessing pipeline that imputes missing values, removes outliers, scales features, and removes constant columns from the dataset. It is applied to the Student_Train dataset to produce a cleaned version, Student_Cleaned, ready for further analysis or modeling. The function uses various techniques like Predictive Mean Matching for imputation, Z-score normalization for scaling, and IQR for outlier detection.
+
+```{r data wrangling, message=FALSE, warnings=FALSE}
+
+clean_data <- function(data, missing_method = "mean", outlier_columns = NULL, scaling_method = "minmax", return_model = FALSE) {
+  
+  suppressWarnings({
+    # Impute missing values and optionally return the model
+    if (return_model) {
+      mice_model <- impute_missing_values(data, method = "pmm", return_model = TRUE)
+      return(mice_model)
+    } else {
+      data <- impute_missing_values(data, method = "pmm")
+    }
+    
+    # Remove outliers
+    if (!is.null(outlier_columns)) {
+      data <- remove_outliers(data, columns = outlier_columns)
+    }
+    
+    # Scale features
+    data <- scale_features(data, method = scaling_method)
+    
+    # Remove constant columns
+    data <- remove_constant_columns(data)
+    
+    return(data)
+  })
+}
+
+
+Student_Cleaned <- clean_data(Student_Train, 
+                             missing_method = "median", 
+                             outlier_columns = c("PH", "Carb_Volume"), 
+                             scaling_method = "zscore")
+
+
+```
+
+
+## Validation of Cleaning
+
+Checks to see if any missing values remain in the cleaned dataset.
+```{r Validation cleaning, message=FALSE, warnings=FALSE}
+
+cat("Missing values per column after cleaning data:\n\n")
+
+# Set the option to disable the warning about large data
+options(visdat.warn_large_data = FALSE)
+
+# Identify the variables with missing values
+Student_Cleaned %>%
+  mutate(across(everything(), as.character)) %>%  # Convert all columns to character
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  filter(is.na(value)) %>%
+  group_by(variable) %>%
+  tally() %>%
+  mutate(percent = n / nrow(Student_Cleaned) * 100) %>%
+  mutate(percent = paste0(round(percent, 1), "%")) %>%
+  arrange(desc(n)) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = "striped", font_size = 12, full_width = F, position = "left") %>% 
+  scroll_box(height = "100%", width = "100%", fixed_thead = T)
+
+# Visualize NA counts for each column
+Student_Cleaned %>%
+  summarise_all(list(~sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "variables", values_to = "missing") %>%
+  ggplot(aes(x = missing, y = variables, fill = as.factor(missing))) +
+  geom_col() +
+  labs(title = "Missing Value Counts for Each Variable after cleaning data",
+       x = "Count",
+       y = "Variables",
+       fill = "Missing") +
+  theme_minimal()
+
+# Visualize distributions after cleaning
+numeric_datac <- Student_Cleaned[, numeric_columns]
+par(mfrow = c(3, 4), mar = c(2, 2, 2, 1))  # Smaller margins for each plot
+for (i in seq_along(numeric_datac)) {
+  hist(numeric_datac[[i]], 
+       main = colnames(numeric_datac)[i], 
+       xlab = colnames(numeric_datac)[i], 
+       col = "darkblue", 
+       border = "white")
+}
+```
+
+
+
+After cleaning the data we need to validate the dataset to check for remaining missing values as well as visualize the distributions to ensure scaling and outlier handling.The imputation process is visualized with a plot, and the density plot for the variable Carb_Volume compares the distribution of imputed and observed values. 
+
+```{r validate dataset, message=FALSE, warnings=FALSE}
+
+# Replace spaces in column names with underscores
+colnames(Student_Train) <- gsub(" ", "_", colnames(Student_Train))
+
+# Run the cleaning and get the mice model
+mice_model <- clean_data(Student_Train, return_model = TRUE)
+
+# Visualize the imputation process
+suppressWarnings(plot(mice_model))
+
+# Compare density plots of imputed vs. observed values for a specific variable
+suppressWarnings(densityplot(mice_model, ~Carb_Volume))  # Use the renamed variable
+```
+```{r}
+colnames(Student_Cleaned) <- gsub(" ", "_", colnames(Student_Cleaned))
+```
+
+Transformations
+For the right skewed variables we will use square root transformation 
+```{r}
+# List of right-skewed and left-skewed variables
+right_skewed_vars <- c("PSC", "PSC_Fill", "PSC_CO2", "Hyd_Pressure1", "Hyd_Pressure2", "Hyd_Pressure3", "Oxygen_Filler", "Air_Pressurer")
+
+for (var in right_skewed_vars) {
+  new_var_name <- paste0("sqr_", var)
+  # Ensure values are non-negative before applying square root
+  min_val <- min(Student_Cleaned[[var]], na.rm = TRUE)
+  if (min_val < 0) {
+    Student_Cleaned[[new_var_name]] <- sqrt(Student_Cleaned[[var]] - min_val + 1e-5)
+  } else {
+    Student_Cleaned[[new_var_name]] <- sqrt(Student_Cleaned[[var]])
+  }
+}
+
+```
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+vars_to_plot <- c("PSC", "Hyd_Pressure1", "Hyd_Pressure2", "Hyd_Pressure3","PSC_Fill", "PSC_CO2", "Oxygen_Filler", "Air_Pressurer")
+
+# Loop through each variable and create separate grids
+for (var in vars_to_plot) {
+  # Plot for the original variable
+  p1 <- ggplot(Student_Cleaned, aes_string(x = var)) +
+    geom_histogram(binwidth = 0.1, color = "black", fill = "lightblue", alpha = 0.7) +
+    ggtitle(paste("Original:", var)) +
+    theme_minimal()
+
+  if (var %in% right_skewed_vars) {
+    transformed_var <- paste0("sqr_", var)
+  } else if (var %in% left_skewed_vars) {
+    transformed_var <- paste0("log_", var)
+  }
+
+  # Plot for the transformed variable
+  p2 <- ggplot(Student_Cleaned, aes_string(x = transformed_var)) +
+    geom_histogram(binwidth = 0.1, color = "black", fill = "lightgreen", alpha = 0.7) +
+    ggtitle(paste("Transformed:", transformed_var)) +
+    theme_minimal()
+
+  grid.arrange(p1, p2, ncol = 2, top = paste("Histograms for", var))
+}
+
+```
+
+Model Building
+
+Linear Models:
+
+Split the Data 80-20 in training and testing data
+
+```{r}
+set.seed(271)
+
+#removing brand code column it has 119 missing values which interferes and is not needed for non-linear model building
+Student_lm <- Student_Cleaned[,-1]
+
+# index for training
+index <- createDataPartition(Student_lm$PH, p = .8, list = FALSE)
+
+# training data 80%
+train_x <- Student_lm[index, ] %>% select(-PH)
+train_y <- Student_lm[index, 'PH']
+
+# testing data 20%
+test_x <- Student_lm[-index, ] %>% select(-PH)
+test_y <- Student_lm[-index, 'PH']
+
+```
+
+Simple Linear Regression
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(127)
+lmFit <- train(x = train_x, y = train_y,
+method = "lm", trControl = ctrl)
+lm_predict <- predict(lmFit, test_x)
+
+postResample(lm_predict, test_y)
+```
+
+Robust Linear Model
+
+```{r}
+set.seed(127)
+rlmPCA <- train(train_x, train_y,
+ method = "rlm",
+ preProcess = "pca",
+ trControl = ctrl)
+ robust_predict <- predict(rlmPCA, test_x)
+
+postResample(robust_predict, test_y)
+```
+
+```{r}
+plot(rlmPCA)
+```
+
+
+Partial Linear Squares
+
+```{r}
+ set.seed(100)
+ plsTune <- train(train_x, train_y,
+ method = "pls",
+ ## The default tuning grid evaluates
+ ## components 1... tuneLength
+ tuneLength = 20,
+ trControl = ctrl,
+ preProc = c("center", "scale"))
+  pls_predict <- predict(plsTune, test_x)
+
+postResample(pls_predict, test_y)
+```
+
+```{r}
+ plot(plsTune)
+```
+
+Enet Model
+
+```{r}
+library(elasticnet)
+set.seed(247)
+# grid of penalties
+enetGrid <- expand.grid(.lambda = c(0, 0.01, .1), .fraction = seq(.05, 1, length = 20))
+# tuning penalized regression model
+enetTune <- train(train_x, train_y, method = "enet",
+                  tuneGrid = enetGrid, trControl = ctrl, preProc = c("center", "scale"))
+enet_predict <- predict(enetTune, test_x)
+
+postResample(enet_predict, test_y)
+```
+
+```{r}
+plot(enetTune)
+```
+
+Ridge Model
+
+```{r}
+ ## Define the candidate set of values
+ ridgeGrid <- data.frame(.lambda = seq(0, .1, length = 15))
+ set.seed(100)
+ ridgeRegFit <- train(train_x, train_y,
+ method = "ridge",
+ ## Fir the model over many penalty values
+ tuneGrid = ridgeGrid,
+ trControl = ctrl,
+ ## put the predictors on the same scale
+ preProc = c("center", "scale"))
+ridge_predict <- predict(ridgeRegFit, test_x)
+
+postResample(ridge_predict, test_y)
+```
+
+```{r}
+plot(ridgeRegFit)
+```
+
+LARS
+
+```{r}
+set.seed(624)
+
+larsTune <- train(train_x, train_y, method = "lars", metric = "Rsquared",
+                    tuneLength = 20, trControl = ctrl, preProc = c("center", "scale"))
+
+lars_predict <- predict(larsTune, test_x)
+
+postResample(lars_predict, test_y)
+```
+
+```{r}
+plot(larsTune)
+```
+
+
+Non-Linear Models:
+
+Split the Data 80-20 in training and testing data
+```{r}
+set.seed(4)
+
+#removing brand code column it has 119 missing values which interferes and is not needed for non-linear model building
+Student_Cleaned_NLM <- Student_Cleaned[,-1]
+
+# index for training
+index <- createDataPartition(Student_Cleaned_NLM$PH, p = .8, list = FALSE)
+
+# training data 80%
+train_x <- Student_Cleaned_NLM[index, ] %>% select(-PH)
+train_y <- Student_Cleaned_NLM[index, 'PH']
+
+# testing data 20%
+test_x <- Student_Cleaned_NLM[-index, ] %>% select(-PH)
+test_y <- Student_Cleaned_NLM[-index, 'PH']
+
+#
+
+```
+
+KNN
+```{r}
+set.seed(4)
+
+knn_model <- train(x=train_x, y=train_y,
+                  method = "knn",
+                  tuneLength=20, 
+                  trainControl=trainControl(method = "repeatedcv", repeats = 5),
+                  preProc = c("center", "scale"))
+knn_prediction <- predict(knn_model, newdata = test_x)
+
+postResample(knn_prediction, test_y)
+```
+
+
+SVM
+```{r}
+set.seed(4)
+
+svm_model <- train(x=train_x, y=train_y,
+                  method = "svmRadial",
+                  preProc = c("center", "scale"),
+                  tuneLength = 14,
+                  trControl = trainControl(method = "cv"))
+
+svm_prediction <- predict(svm_model, newdata = test_x)
+
+postResample(svm_prediction, test_y)
+```
+
+MARS
+```{r}
+# create a tuning grid
+mars_grid<- expand.grid(.degree = 1:2, .nprune = 2:38)
+
+set.seed(4)
+ 
+mars_model <- train(train_x, train_y,
+                  method = "earth",
+                  tuneGrid = mars_grid,
+                  trControl = trainControl(method = "cv"))
+
+mars_prediction <- predict(mars_model, test_x)
+
+postResample(mars_prediction, test_y)
+```
+
+Random Forest
+```{r}
+
+set.seed(4)
+
+
+
+random_forest_model <- randomForest(train_x, train_y, 
+                        importance = TRUE,
+                        ntree = 1000)
+
+
+random_forest_model_prediction<- predict(random_forest_model, test_x)
+
+postResample(random_forest_model_prediction, test_y)
+```
+
+
+Model Evaluation
+```{r}
+rbind(KNN= postResample(knn_prediction, test_y),
+      SVM = postResample(svm_prediction , test_y),
+      MARS = postResample(mars_prediction, test_y),
+      RandomForest = postResample(random_forest_model_prediction, test_y),
+      SLR = postResample(lm_predict, test_y),
+      RLM = postResample(robust_predict, test_y),
+      PLS = postResample(pls_predict, test_y),
+      ENET = postResample(enet_predict, test_y),
+      Ridge = postResample(ridge_predict, test_y),
+      LARS = postResample(lars_predict, test_y))
+    
+```
+
+based on the table above, out of the linear and non-linear models, the one with the best opimal resampling and test set performance of all is the Random Forest model. It has the lowest RMSE (a lower RMSE predicts a better performing model) of all the models at: 0.61. It also has the highest Rsquared (a higher Rsquared indicates a better fit) of all the models at 0.64. 
+
+```{r}
+rfImp <- varImp(random_forest_model, scale = TRUE) %>%
+  as.data.frame()
+
+rfImp %>%
+  arrange(-Overall) %>%
+  kable() %>% 
+  kable_styling() %>%
+  scroll_box()
+```
+
+```{r}
+varImpPlot(random_forest_model, sort = TRUE, n.var = 10)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
